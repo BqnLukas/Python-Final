@@ -26,7 +26,7 @@ game_map = {
     (4, 4): "Haunted Forest"
 }
 
-location_descriptions = {
+location_description = {
     "Uncharted Territory": "Uncharted territory is filled with wild, untamed lands with no clear paths or landmarks...",
     "Abandoned Village": "These abandoned villages are eerily quiet, with crumbling huts and overgrown pathways...",
     "Ancient Ruins": "The ancient ruins are towering stone pillars and crumbling walls...",
