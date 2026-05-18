@@ -138,14 +138,41 @@ def build_status_screen(player, location_name: str, coords: tuple[int, int]) -> 
         border
     ])
 
-
-apply the following logic for the commands, with more to it so it error traps anything that doesn't match the valid inputs... must also allow the player to move tiles, error trapping anything outside of the given 5x5 grid (0,0) is always the bottom left corner. must be able to move the character to any coordinate using n,e,s,w, from the area of (0,0) to (4,4):
 def run_game_loop(player, current_quests, game_items):
+    MIN_X, MAX_X = 0, 4
+    MIN_Y, MAX_Y = 0, 4
     print()
-    print("Game commands: m = view map, s = save game, q = quit")
+    print("Game commands: n/s/e/w = move, m = map, i = inventory, p = pick up, d = drop, u = use, c = inspect, t = interact, s = save, q = quit")
+    # ensure player has a location attribute
+    if not hasattr(player, 'location'):
+        player.location = (0, 0)
+
     while True:
         command = input("Enter command: ").strip().lower()
-        if command == "m":
+
+        # movement
+        if command in ("n", "north", "s", "south", "e", "east", "w", "west"):
+            x, y = player.location
+            if command.startswith('n'):
+                new = (x, y + 1)
+            elif command.startswith('s'):
+                new = (x, y - 1)
+            elif command.startswith('e'):
+                new = (x + 1, y)
+            else:  # west
+                new = (x - 1, y)
+            nx, ny = new
+            if nx < MIN_X or nx > MAX_X or ny < MIN_Y or ny > MAX_Y:
+                print(f"You cannot move outside the map. Valid x,y range is {MIN_X}-{MAX_X}, {MIN_Y}-{MAX_Y}.")
+                continue
+            player.location = (nx, ny)
+            loc_name = game_map.get(player.location, "Unknown")
+            print(f"You move to {loc_name} {player.location}.")
+            # auto-save after move
+            save_game_state(player, current_quests, game_items)
+
+        # map display and inspect by coords
+        elif command == "m":
             print()
             print(build_map_display())
             coords_text = input("Enter coordinates as x,y to inspect a tile (or press Enter to return): ").strip()
@@ -157,14 +184,124 @@ def run_game_loop(player, current_quests, game_items):
                 continue
             print(describe_location(coords))
             print()
+
+        # inventory
+        elif command == "i":
+            inv = getattr(player, 'inventory', [])
+            if not inv:
+                print("Your inventory is empty.")
+            else:
+                print("Inventory:")
+                for it in inv:
+                    print(" - ", it)
+
+        # pick up
+        elif command == "p":
+            loc = player.location
+            items_here = game_items.get(loc, [])
+            if not items_here:
+                print("There is nothing to pick up here.")
+                continue
+            print("Items at this location:")
+            for idx, it in enumerate(items_here, 1):
+                print(f"{idx}. {it}")
+            choice = input("Enter item number or name to pick up: ").strip()
+            if not choice:
+                continue
+            # try number
+            picked = None
+            if choice.isdigit():
+                i = int(choice) - 1
+                if 0 <= i < len(items_here):
+                    picked = items_here.pop(i)
+            else:
+                if choice in items_here:
+                    items_here.remove(choice)
+                    picked = choice
+            if picked:
+                player.inventory.append(picked)
+                game_items[loc] = items_here
+                print(f"Picked up {picked}.")
+                save_game_state(player, current_quests, game_items)
+            else:
+                print("Could not pick that item.")
+
+        # drop
+        elif command == "d":
+            inv = getattr(player, 'inventory', [])
+            if not inv:
+                print("You have no items to drop.")
+                continue
+            print("Your inventory:")
+            for idx, it in enumerate(inv, 1):
+                print(f"{idx}. {it}")
+            choice = input("Enter item number or name to drop: ").strip()
+            if not choice:
+                continue
+            dropped = None
+            if choice.isdigit():
+                i = int(choice) - 1
+                if 0 <= i < len(inv):
+                    dropped = inv.pop(i)
+            else:
+                if choice in inv:
+                    inv.remove(choice)
+                    dropped = choice
+            if dropped:
+                loc = player.location
+                game_items.setdefault(loc, []).append(dropped)
+                print(f"Dropped {dropped} at {loc}.")
+                save_game_state(player, current_quests, game_items)
+            else:
+                print("Could not drop that item.")
+
+        # use
+        elif command == "u":
+            inv = getattr(player, 'inventory', [])
+            if not inv:
+                print("You have no items to use.")
+                continue
+            print("Your inventory:")
+            for idx, it in enumerate(inv, 1):
+                print(f"{idx}. {it}")
+            choice = input("Enter item number or name to use: ").strip()
+            if not choice:
+                continue
+            used = None
+            if choice.isdigit():
+                i = int(choice) - 1
+                if 0 <= i < len(inv):
+                    used = inv.pop(i)
+            else:
+                if choice in inv:
+                    inv.remove(choice)
+                    used = choice
+            if used:
+                print(f"You use the {used}. Nothing dramatic happens.")
+                save_game_state(player, current_quests, game_items)
+            else:
+                print("Could not use that item.")
+
+        # inspect current tile
+        elif command == "c":
+            print(describe_location(player.location))
+
+        # interact
+        elif command == "t":
+            print("There is nothing in particular to interact with here.")
+
+        # save
         elif command == "s":
             save_game_state(player, current_quests, game_items)
             print("Game saved.")
+
+        # quit
         elif command == "q":
             save_game_state(player, current_quests, game_items)
             print("Game saved and exiting. Goodbye.")
             break
+
         else:
-            print("Unknown command. Valid commands are: m, s, q")
+            print("Unknown command. Valid commands: n/s/e/w, m, i, p, d, u, c, t, s, q")
 
 
